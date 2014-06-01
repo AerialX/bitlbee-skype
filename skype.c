@@ -1059,8 +1059,6 @@ static void skype_parse_profile(struct im_connection *ic, char *line)
 
 static void skype_parse_ping(struct im_connection *ic, char *line)
 {
-	/* Unused parameter */
-	line = line;
 	skype_printf(ic, "PONG\n");
 }
 
@@ -1153,10 +1151,6 @@ static gboolean skype_read_callback(gpointer data, gint fd,
 		{ "ALTER GROUP ", skype_parse_alter_group },
 	};
 
-	/* Unused parameters */
-	fd = fd;
-	cond = cond;
-
 	if (!sd || sd->fd == -1)
 		return FALSE;
 	/* Read the whole data. */
@@ -1236,9 +1230,6 @@ gboolean skype_connected(gpointer data, int returncode, void *source, b_input_co
 	struct im_connection *ic = data;
 	struct skype_data *sd = ic->proto_data;
 
-	/* Unused parameter */
-	cond = cond;
-
 	if (!source) {
 		sd->ssl = NULL;
 		imcb_error(ic, "Could not connect to server");
@@ -1299,9 +1290,6 @@ static int skype_buddy_msg(struct im_connection *ic, char *who, char *message,
 	char *ptr, *nick;
 	int st;
 
-	/* Unused parameter */
-	flags = flags;
-
 	nick = g_strdup(who);
 	ptr = strchr(nick, '@');
 	if (ptr)
@@ -1332,9 +1320,6 @@ static void skype_set_away(struct im_connection *ic, char *state_txt,
 {
 	const struct skype_away_state *state;
 
-	/* Unused parameter */
-	message = message;
-
 	if (state_txt == NULL)
 		state = skype_away_state_by_name("Online");
 	else
@@ -1346,9 +1331,6 @@ static GList *skype_away_states(struct im_connection *ic)
 {
 	static GList *l;
 	int i;
-
-	/* Unused parameter */
-	ic = ic;
 
 	if (l == NULL)
 		for (i = 0; skype_away_state_list[i].full_name; i++)
@@ -1453,9 +1435,6 @@ static void skype_remove_buddy(struct im_connection *ic, char *who, char *group)
 {
 	char *nick, *ptr;
 
-	/* Unused parameter */
-	group = group;
-
 	nick = g_strdup(who);
 	ptr = strchr(nick, '@');
 	if (ptr)
@@ -1467,9 +1446,6 @@ static void skype_remove_buddy(struct im_connection *ic, char *who, char *group)
 void skype_chat_msg(struct groupchat *gc, char *message, int flags)
 {
 	struct im_connection *ic = gc->ic;
-
-	/* Unused parameter */
-	flags = flags;
 
 	skype_printf(ic, "CHATMESSAGE %s %s\n", gc->title, message);
 }
@@ -1602,9 +1578,6 @@ GList *skype_buddy_action_list(bee_user_t *bu)
 {
 	static GList *ret;
 
-	/* Unused parameter */
-	bu = bu;
-
 	if (ret == NULL) {
 		static const struct buddy_action ba[2] = {
 			{"CALL", "Initiate a call" },
@@ -1621,10 +1594,6 @@ GList *skype_buddy_action_list(bee_user_t *bu)
 
 void *skype_buddy_action(struct bee_user *bu, const char *action, char * const args[], void *data)
 {
-	/* Unused parameters */
-	args = args;
-	data = data;
-
 	if (!g_strcasecmp(action, "CALL"))
 		skype_call(bu->ic, bu->handle);
 	else if (!g_strcasecmp(action, "HANGUP"))
