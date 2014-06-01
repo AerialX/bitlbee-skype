@@ -93,6 +93,8 @@ def input_handler(fd, io_condition = None):
 				try:
 						input = fd.recv(1024)
 						options.lock.release()
+						if input == '':
+							raise Exception('Connection closed')
 				except Exception, s:
 					dprint("Warning, receiving 1024 bytes failed (%s)." % s)
 					fd.close()
@@ -106,6 +108,8 @@ def input_handler(fd, io_condition = None):
 			return not(close_socket)
 		try:
 			input = fd.recv(1024)
+			if input == '':
+				raise Exception('Connection closed')
 		except Exception, s:
 			dprint("Warning, receiving 1024 bytes failed (%s)." % s)
 			fd.close()
