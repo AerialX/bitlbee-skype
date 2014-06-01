@@ -7,15 +7,18 @@ LDFLAGS		:= $(shell pkg-config --libs bitlbee)
 
 all: $(BINARY)
 
-$(BINARY): $(OBJS)
-	clang -o $@ -shared $< $(LDFLAGS)
-
 clean:
 	rm -f $(OBJS) $(BINARY)
+
+test:
+	sudo cp $(BINARY) /usr/lib/bitlbee/
+
+$(BINARY): $(OBJS)
+	clang -o $@ -shared $< $(LDFLAGS)
 
 $(OBJS): $(SOURCES)
 
 %.o: %.c
 	clang -c -o $@ $< $(CFLAGS)
 
-.PHONY: all clean
+.PHONY: all test clean
