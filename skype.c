@@ -971,6 +971,16 @@ static void skype_parse_group(struct im_connection *ic, char *line)
 		skype_printf(ic, "GET GROUP %s USERS\n", id);
 }
 
+static const char* skype_lookup_name(struct skype_data* sd, const char* id)
+{
+	const char* value = g_hash_table_lookup(sd->channelNames, id) ?: id;
+
+	if (value[0] == '#')
+		return value + 1;
+
+	return value;
+}
+
 static void skype_parse_chat(struct im_connection *ic, char *line)
 {
 	struct skype_data *sd = ic->proto_data;
@@ -994,7 +1004,7 @@ static void skype_parse_chat(struct im_connection *ic, char *line)
 		gc = bee_chat_by_title(ic->bee, ic, id);
 		if (!gc) {
 			gc = imcb_chat_new(ic, id);
-			imcb_chat_name_hint(gc, g_hash_table_lookup(sd->channelNames, id) ?: id);
+			imcb_chat_name_hint(gc, skype_lookup_name(sd, id));
 		}
 		skype_printf(ic, "GET CHAT %s ADDER\n", id);
 		skype_printf(ic, "GET CHAT %s TOPIC\n", id);
@@ -1003,7 +1013,7 @@ static void skype_parse_chat(struct im_connection *ic, char *line)
 	} else if (!strcmp(info, "STATUS DIALOG")) {
 		if (sd->groupchat_with) {
 			gc = imcb_chat_new(ic, id);
-			imcb_chat_name_hint(gc, g_hash_table_lookup(sd->channelNames, id) ?: id);
+			imcb_chat_name_hint(gc, skype_lookup_name(sd, id));
 			/* According to the docs this
 			 * is necessary. However it
 			 * does not seem the situation
@@ -1729,9 +1739,6 @@ static int skype_irc_channel_rename(irc_channel_t* channel, const char* name)
 	if (channel->data && !g_strcmp0(type, "chat") && !g_strcmp0(chat_type, "groupchat")) {
 		struct groupchat* gc = channel->data;
 		struct im_connection* ic = gc->ic;
-
-		if (name[0] == '#')
-			name++;
 
 		if (ic->acc && ic->acc->prpl && !g_strcmp0(ic->acc->prpl->name, "skype")) {
 			struct skype_data* sd = ic->proto_data;
