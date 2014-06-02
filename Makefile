@@ -10,7 +10,7 @@ all: $(BINARY)
 clean:
 	rm -f $(OBJS) $(BINARY)
 
-test:
+test: $(BINARY)
 	sudo cp $(BINARY) /usr/lib/bitlbee/
 
 $(BINARY): $(OBJS)
