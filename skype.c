@@ -120,6 +120,8 @@ struct skype_data {
 	char *pending_user;
 	/* If the info command was used, to determine what to do with FULLNAME result. */
 	int is_info;
+	/* Renamed channels */
+	GHashTable* channelNames;
 };
 
 struct skype_away_state {
@@ -983,7 +985,9 @@ static void skype_parse_chat(struct im_connection *ic, char *line)
 		gc = bee_chat_by_title(ic->bee, ic, id);
 		if (!gc) {
 			gc = imcb_chat_new(ic, id);
-			imcb_chat_name_hint(gc, id);
+			imcb_chat_name_hint(gc, g_hash_table_lookup(sd->channelNames, id) ?: id);
+			imcb_chat_name_hint(gc, attemptedName);
+			irc_channel_t* chan = gc->ui_data;
 		}
 		skype_printf(ic, "GET CHAT %s ADDER\n", id);
 		skype_printf(ic, "GET CHAT %s TOPIC\n", id);
@@ -992,7 +996,7 @@ static void skype_parse_chat(struct im_connection *ic, char *line)
 	} else if (!strcmp(info, "STATUS DIALOG")) {
 		if (sd->groupchat_with) {
 			gc = imcb_chat_new(ic, id);
-			imcb_chat_name_hint(gc, id);
+			imcb_chat_name_hint(gc, g_hash_table_lookup(sd->channelNames, id) ?: id);
 			/* According to the docs this
 			 * is necessary. However it
 			 * does not seem the situation
@@ -1258,10 +1262,13 @@ gboolean skype_connected(gpointer data, int returncode, void *source, b_input_co
 	return skype_start_stream(ic);
 }
 
+static void skype_channel_names_load(struct skype_data* sd);
+
 static void skype_login(account_t *acc)
 {
 	struct im_connection *ic = imcb_new(acc);
 	struct skype_data *sd = g_new0(struct skype_data, 1);
+	sd->channelNames = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
 
 	ic->proto_data = sd;
 
@@ -1275,6 +1282,8 @@ static void skype_login(account_t *acc)
 
 	if (set_getbool(&acc->set, "skypeconsole"))
 		imcb_add_buddy(ic, "skypeconsole", NULL);
+
+	skype_channel_names_load(sd);
 }
 
 static void skype_logout(struct im_connection *ic)
@@ -1297,6 +1306,7 @@ static void skype_logout(struct im_connection *ic)
 
 	g_free(sd->username);
 	g_free(sd->handle);
+	g_hash_table_destroy(sd->channelNames);
 	g_free(sd);
 	ic->proto_data = NULL;
 }
@@ -1543,6 +1553,8 @@ static void skype_get_info(struct im_connection *ic, char *who)
 	skype_printf(ic, "GET USER %s BIRTHDAY\n", nick);
 }
 
+static char *skype_set_channel_names(set_t *set, char *value);
+
 static void skype_init(account_t *acc)
 {
 	set_t *s;
@@ -1588,6 +1600,9 @@ static void skype_init(account_t *acc)
 			NULL, acc);
 
 	s = set_add(&acc->set, "read_groups", "false", set_eval_bool, acc);
+
+	s = set_add(&acc->set, "channel_names", NULL, skype_set_channel_names,
+		acc);
 }
 
 #if BITLBEE_VERSION_CODE > BITLBEE_VER(3, 0, 1)
@@ -1620,6 +1635,121 @@ void *skype_buddy_action(struct bee_user *bu, const char *action, char * const a
 }
 #endif
 
+static int skype_channel_names_skip = FALSE;
+
+static void skype_channel_names(GHashTable* table, const char* channelNames)
+{
+	g_hash_table_remove_all(table);
+
+	if (!channelNames)
+		return;
+
+	char** names = g_strsplit(channelNames, " ", 0x100);
+
+	for (char** name = names; *name; name++) {
+		char** entry = g_strsplit(*name, ":", 2);
+		if (entry[0] && entry[1])
+			g_hash_table_insert(table, g_strdup(entry[1]), g_strdup(entry[0]));
+		g_strfreev(entry);
+	}
+
+	g_strfreev(names);
+}
+
+static void skype_channel_names_save(struct skype_data* sd)
+{
+	char setting[0x1000] = "";
+
+	int first = TRUE;
+	GHashTableIter iter;
+	gpointer key, value;
+	g_hash_table_iter_init(&iter, sd->channelNames);
+	while (g_hash_table_iter_next(&iter, &key, &value)) {
+		if (!first)
+			g_strlcat(setting, " ", sizeof(setting));
+		g_strlcat(setting, value, sizeof(setting));
+		g_strlcat(setting, ":", sizeof(setting));
+		g_strlcat(setting, key, sizeof(setting));
+
+		first = FALSE;
+	}
+
+	skype_channel_names_skip = TRUE;
+	set_setstr(&sd->ic->acc->set, "channel_names", setting);
+	skype_channel_names_skip = FALSE;
+}
+
+static void skype_channel_names_load(struct skype_data* sd)
+{
+	skype_channel_names(sd->channelNames, set_getstr(&sd->ic->acc->set, "channel_names"));
+}
+
+static char *skype_set_channel_names(set_t *set, char *value)
+{
+	if (!skype_channel_names_skip) {
+		account_t *acc = set->data;
+		if (acc && acc->ic) {
+			struct skype_data* sd = acc->ic->proto_data;
+
+			if (sd)
+				skype_channel_names(sd->channelNames, value);
+		}
+	}
+
+	return value;
+}
+
+static int skype_irc_channel_rename(irc_channel_t* channel, const char* name)
+{
+	char reason[1024];
+
+	if (!irc_channel_name_ok(name) || irc_channel_by_name(channel->irc, name))
+		return 0;
+
+	g_snprintf(reason, sizeof(reason), "Channel renaming to %s", name);
+
+	irc_send_part(channel, channel->irc->user, reason);
+
+	g_free(channel->name);
+	channel->name = g_strdup(name);
+
+	irc_send_join(channel, channel->irc->user);
+
+	// Save name change for Skype rooms
+	const char* type = set_getstr(&channel->set, "type");
+	const char* chat_type = set_getstr(&channel->set, "chat_type");
+	if (channel->data && !g_strcmp0(type, "chat") && !g_strcmp0(chat_type, "groupchat")) {
+		struct groupchat* gc = channel->data;
+		struct im_connection* ic = gc->ic;
+
+		if (name[0] == '#')
+			name++;
+
+		if (ic->acc && ic->acc->prpl && !g_strcmp0(ic->acc->prpl->name, "skype")) {
+			struct skype_data* sd = ic->proto_data;
+			g_hash_table_insert(sd->channelNames, g_strdup(gc->title), g_strdup(name));
+			skype_channel_names_save(sd);
+		}
+	}
+
+	return 1;
+}
+
+static void skype_cmd_renchan(irc_t* irc, char** cmd)
+{
+	irc_channel_t *ic;
+	ic = irc_channel_by_name(irc, cmd[1]);
+
+	if (ic) {
+		if (skype_irc_channel_rename(ic, cmd[2]))
+			irc_rootmsg(irc, "Channel renamed");
+		else
+			irc_rootmsg(irc, "Rename failed");
+	} else {
+		irc_rootmsg(irc, "Channel `%s' does not exist", cmd[1]);
+	}
+}
+
 void init_plugin(void)
 {
 	struct prpl *ret = g_new0(struct prpl, 1);
@@ -1645,4 +1775,6 @@ void init_plugin(void)
 	ret->buddy_action = skype_buddy_action;
 #endif
 	register_protocol(ret);
+
+	root_command_add("renchan", 2, skype_cmd_renchan, 0);
 }
