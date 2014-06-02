@@ -1002,14 +1002,23 @@ static void skype_parse_chat(struct im_connection *ic, char *line)
 		imcb_chat_free(gc);
 	if (!strcmp(info, "STATUS MULTI_SUBSCRIBED")) {
 		gc = bee_chat_by_title(ic->bee, ic, id);
+		int joined = FALSE;
 		if (!gc) {
 			gc = imcb_chat_new(ic, id);
 			imcb_chat_name_hint(gc, skype_lookup_name(sd, id));
+		} else {
+			irc_channel_t* channel = gc->ui_data;
+			if (channel && (channel->flags & IRC_CHANNEL_JOINED))
+				joined = TRUE;
+		}
+
+		if (joined)
+			skype_attempt_chatmessage(ic);
+		else {
 			skype_printf(ic, "GET CHAT %s ACTIVEMEMBERS\n", id);
 			skype_printf(ic, "GET CHAT %s ADDER\n", id);
 			skype_printf(ic, "GET CHAT %s TOPIC\n", id);
-		} else
-			skype_attempt_chatmessage(ic);
+		}
 	} else if (!strcmp(info, "STATUS DIALOG")) {
 		if (sd->groupchat_with) {
 			gc = imcb_chat_new(ic, id);
@@ -1768,6 +1777,18 @@ static void skype_cmd_renchan(irc_t* irc, char** cmd)
 	}
 }
 
+static void skype_cmd_close(irc_t* irc, char** cmd)
+{
+	irc_channel_t *ic;
+	ic = irc_channel_by_name(irc, cmd[1]);
+
+	if (ic) {
+		struct groupchat* c = ic->data;
+		if (c)
+			imcb_chat_free(c);
+	}
+}
+
 void init_plugin(void)
 {
 	struct prpl *ret = g_new0(struct prpl, 1);
@@ -1795,4 +1816,5 @@ void init_plugin(void)
 	register_protocol(ret);
 
 	root_command_add("renchan", 2, skype_cmd_renchan, 0);
+	root_command_add("skypeclose", 1, skype_cmd_close, 0);
 }
