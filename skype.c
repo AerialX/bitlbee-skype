@@ -72,6 +72,7 @@ struct skype_data {
 	/* List, because of multiline messages. */
 	GList *body;
 	char *type;
+	char *chat;
 	/* This is necessary because we send a notification when we get the
 	 * handle. So we store the state here and then we can send a
 	 * notification about the handle is in a given status. */
@@ -602,6 +603,29 @@ static void skype_parse_chatmessage_said_emoted(struct im_connection *ic, struct
 		imcb_chat_msg(gc, sd->handle, buf, 0, 0);
 }
 
+static void skype_attempt_chatmessage(struct im_connection *ic)
+{
+	struct skype_data *sd = ic->proto_data;
+	if (sd->handle && sd->body && sd->type) {
+		struct groupchat *gc = bee_chat_by_title(ic->bee, ic, sd->chat);
+		int i;
+		for (i = 0; i < g_list_length(sd->body); i++) {
+			char *body = g_list_nth_data(sd->body, i);
+			if (!strcmp(sd->type, "SAID") ||
+					!strcmp(sd->type, "EMOTED")) {
+				skype_parse_chatmessage_said_emoted(ic, gc, body);
+			} else if (!strcmp(sd->type, "SETTOPIC") && gc && (!gc->topic || strcmp(gc->topic, body)))
+				imcb_chat_topic(gc,
+						sd->handle, body, 0);
+			else if (!strcmp(sd->type, "LEFT") && gc)
+				imcb_chat_remove_buddy(gc,
+						sd->handle, NULL);
+		}
+		g_list_free(sd->body);
+		sd->body = NULL;
+	}
+}
+
 static void skype_parse_chatmessage(struct im_connection *ic, char *line)
 {
 	struct skype_data *sd = ic->proto_data;
@@ -655,24 +679,9 @@ static void skype_parse_chatmessage(struct im_connection *ic, char *line)
 		sd->type = g_strdup(info);
 	} else if (!strncmp(info, "CHATNAME ", 9)) {
 		info += 9;
-		if (sd->handle && sd->body && sd->type) {
-			struct groupchat *gc = bee_chat_by_title(ic->bee, ic, info);
-			int i;
-			for (i = 0; i < g_list_length(sd->body); i++) {
-				char *body = g_list_nth_data(sd->body, i);
-				if (!strcmp(sd->type, "SAID") ||
-					!strcmp(sd->type, "EMOTED")) {
-					skype_parse_chatmessage_said_emoted(ic, gc, body);
-				} else if (!strcmp(sd->type, "SETTOPIC") && gc)
-					imcb_chat_topic(gc,
-						sd->handle, body, 0);
-				else if (!strcmp(sd->type, "LEFT") && gc)
-					imcb_chat_remove_buddy(gc,
-						sd->handle, NULL);
-			}
-			g_list_free(sd->body);
-			sd->body = NULL;
-		}
+		g_free(sd->chat);
+		sd->chat = g_strdup(info);
+		skype_printf(ic, "GET CHAT %s STATUS", sd->chat);
 	}
 }
 
@@ -978,24 +987,30 @@ static void skype_parse_chat(struct im_connection *ic, char *line)
 		}
 		skype_printf(ic, "GET CHAT %s ADDER\n", id);
 		skype_printf(ic, "GET CHAT %s TOPIC\n", id);
-	} else if (!strcmp(info, "STATUS DIALOG") && sd->groupchat_with) {
-		gc = imcb_chat_new(ic, id);
-		imcb_chat_name_hint(gc, id);
-		/* According to the docs this
-		 * is necessary. However it
-		 * does not seem the situation
-		 * and it would open an extra
-		 * window on our client, so
-		 * just leave it out. */
-		/*skype_printf(ic, "OPEN CHAT %s\n", id);*/
-		g_snprintf(buf, IRC_LINE_SIZE, "%s@skype.com",
-				sd->groupchat_with);
-		imcb_chat_add_buddy(gc, buf);
-		imcb_chat_add_buddy(gc, sd->username);
-		g_free(sd->groupchat_with);
-		sd->groupchat_with = NULL;
-		skype_printf(ic, "GET CHAT %s ADDER\n", id);
-		skype_printf(ic, "GET CHAT %s TOPIC\n", id);
+
+		skype_attempt_chatmessage(ic);
+	} else if (!strcmp(info, "STATUS DIALOG")) {
+		if (sd->groupchat_with) {
+			gc = imcb_chat_new(ic, id);
+			imcb_chat_name_hint(gc, id);
+			/* According to the docs this
+			 * is necessary. However it
+			 * does not seem the situation
+			 * and it would open an extra
+			 * window on our client, so
+			 * just leave it out. */
+			/*skype_printf(ic, "OPEN CHAT %s\n", id);*/
+			g_snprintf(buf, IRC_LINE_SIZE, "%s@skype.com",
+					sd->groupchat_with);
+			imcb_chat_add_buddy(gc, buf);
+			imcb_chat_add_buddy(gc, sd->username);
+			g_free(sd->groupchat_with);
+			sd->groupchat_with = NULL;
+			skype_printf(ic, "GET CHAT %s ADDER\n", id);
+			skype_printf(ic, "GET CHAT %s TOPIC\n", id);
+		}
+
+		skype_attempt_chatmessage(ic);
 	} else if (!strcmp(info, "STATUS UNSUBSCRIBED")) {
 		gc = bee_chat_by_title(ic->bee, ic, id);
 		if (gc)
