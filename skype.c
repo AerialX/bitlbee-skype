@@ -381,201 +381,203 @@ static void skype_parse_user(struct im_connection *ic, char *line)
 	} else if (!strncmp(ptr, "FULLNAME ", 9)) {
 		char *name = ptr + 9;
 		if (sd->is_info) {
-			sd->is_info = FALSE;
 			sd->info_fullname = g_strdup(name);
 		} else {
 			char *buf = g_strdup_printf("%s@skype.com", user);
 			imcb_rename_buddy(ic, buf, name);
 			g_free(buf);
 		}
-	} else if (!strncmp(ptr, "PHONE_HOME ", 11))
-		sd->info_phonehome = g_strdup(ptr + 11);
-	else if (!strncmp(ptr, "PHONE_OFFICE ", 13))
-		sd->info_phoneoffice = g_strdup(ptr + 13);
-	else if (!strncmp(ptr, "PHONE_MOBILE ", 13))
-		sd->info_phonemobile = g_strdup(ptr + 13);
-	else if (!strncmp(ptr, "NROF_AUTHED_BUDDIES ", 20))
-		sd->info_nrbuddies = g_strdup(ptr + 20);
-	else if (!strncmp(ptr, "TIMEZONE ", 9))
-		sd->info_tz = g_strdup(ptr + 9);
-	else if (!strncmp(ptr, "LASTONLINETIMESTAMP ", 20))
-		sd->info_seen = g_strdup(ptr + 20);
-	else if (!strncmp(ptr, "SEX ", 4))
-		sd->info_sex = g_strdup(ptr + 4);
-	else if (!strncmp(ptr, "LANGUAGE ", 9))
-		sd->info_language = g_strdup(ptr + 9);
-	else if (!strncmp(ptr, "COUNTRY ", 8))
-		sd->info_country = g_strdup(ptr + 8);
-	else if (!strncmp(ptr, "PROVINCE ", 9))
-		sd->info_province = g_strdup(ptr + 9);
-	else if (!strncmp(ptr, "CITY ", 5))
-		sd->info_city = g_strdup(ptr + 5);
-	else if (!strncmp(ptr, "HOMEPAGE ", 9))
-		sd->info_homepage = g_strdup(ptr + 9);
-	else if (!strncmp(ptr, "ABOUT ", 6)) {
-		/* Support multiple about lines. */
-		if (!sd->info_about)
-			sd->info_about = g_strdup(ptr + 6);
-		else {
-			GString *st = g_string_new(sd->info_about);
-			g_string_append_printf(st, "\n%s", ptr + 6);
-			g_free(sd->info_about);
-			sd->info_about = g_strdup(st->str);
+	} else if (sd->is_info) {
+		if (!strncmp(ptr, "PHONE_HOME ", 11))
+			sd->info_phonehome = g_strdup(ptr + 11);
+		else if (!strncmp(ptr, "PHONE_OFFICE ", 13))
+			sd->info_phoneoffice = g_strdup(ptr + 13);
+		else if (!strncmp(ptr, "PHONE_MOBILE ", 13))
+			sd->info_phonemobile = g_strdup(ptr + 13);
+		else if (!strncmp(ptr, "NROF_AUTHED_BUDDIES ", 20))
+			sd->info_nrbuddies = g_strdup(ptr + 20);
+		else if (!strncmp(ptr, "TIMEZONE ", 9))
+			sd->info_tz = g_strdup(ptr + 9);
+		else if (!strncmp(ptr, "LASTONLINETIMESTAMP ", 20))
+			sd->info_seen = g_strdup(ptr + 20);
+		else if (!strncmp(ptr, "SEX ", 4))
+			sd->info_sex = g_strdup(ptr + 4);
+		else if (!strncmp(ptr, "LANGUAGE ", 9))
+			sd->info_language = g_strdup(ptr + 9);
+		else if (!strncmp(ptr, "COUNTRY ", 8))
+			sd->info_country = g_strdup(ptr + 8);
+		else if (!strncmp(ptr, "PROVINCE ", 9))
+			sd->info_province = g_strdup(ptr + 9);
+		else if (!strncmp(ptr, "CITY ", 5))
+			sd->info_city = g_strdup(ptr + 5);
+		else if (!strncmp(ptr, "HOMEPAGE ", 9))
+			sd->info_homepage = g_strdup(ptr + 9);
+		else if (!strncmp(ptr, "ABOUT ", 6)) {
+			/* Support multiple about lines. */
+			if (!sd->info_about)
+				sd->info_about = g_strdup(ptr + 6);
+			else {
+				GString *st = g_string_new(sd->info_about);
+				g_string_append_printf(st, "\n%s", ptr + 6);
+				g_free(sd->info_about);
+				sd->info_about = g_strdup(st->str);
+				g_string_free(st, TRUE);
+			}
+		} else if (!strncmp(ptr, "BIRTHDAY ", 9)) {
+			sd->is_info = FALSE;
+			sd->info_birthday = g_strdup(ptr + 9);
+
+			GString *st = g_string_new("Contact Information\n");
+			g_string_append_printf(st, "Skype Name: %s\n", user);
+			if (sd->info_fullname) {
+				if (strlen(sd->info_fullname))
+					g_string_append_printf(st, "Full Name: %s\n",
+							sd->info_fullname);
+				g_free(sd->info_fullname);
+				sd->info_fullname = NULL;
+			}
+			if (sd->info_phonehome) {
+				if (strlen(sd->info_phonehome))
+					g_string_append_printf(st, "Home Phone: %s\n",
+							sd->info_phonehome);
+				g_free(sd->info_phonehome);
+				sd->info_phonehome = NULL;
+			}
+			if (sd->info_phoneoffice) {
+				if (strlen(sd->info_phoneoffice))
+					g_string_append_printf(st, "Office Phone: %s\n",
+							sd->info_phoneoffice);
+				g_free(sd->info_phoneoffice);
+				sd->info_phoneoffice = NULL;
+			}
+			if (sd->info_phonemobile) {
+				if (strlen(sd->info_phonemobile))
+					g_string_append_printf(st, "Mobile Phone: %s\n",
+							sd->info_phonemobile);
+				g_free(sd->info_phonemobile);
+				sd->info_phonemobile = NULL;
+			}
+			g_string_append_printf(st, "Personal Information\n");
+			if (sd->info_nrbuddies) {
+				if (strlen(sd->info_nrbuddies))
+					g_string_append_printf(st,
+							"Contacts: %s\n", sd->info_nrbuddies);
+				g_free(sd->info_nrbuddies);
+				sd->info_nrbuddies = NULL;
+			}
+			if (sd->info_tz) {
+				if (strlen(sd->info_tz)) {
+					char ib[256];
+					time_t t = time(NULL);
+					t += atoi(sd->info_tz)-(60*60*24);
+					struct tm *gt = gmtime(&t);
+					strftime(ib, 256, "%H:%M:%S", gt);
+					g_string_append_printf(st,
+							"Local Time: %s\n", ib);
+				}
+				g_free(sd->info_tz);
+				sd->info_tz = NULL;
+			}
+			if (sd->info_seen) {
+				if (strlen(sd->info_seen)) {
+					char ib[256];
+					time_t it = atoi(sd->info_seen);
+					struct tm *tm = localtime(&it);
+					strftime(ib, 256, ("%Y. %m. %d. %H:%M"), tm);
+					g_string_append_printf(st,
+							"Last Seen: %s\n", ib);
+				}
+				g_free(sd->info_seen);
+				sd->info_seen = NULL;
+			}
+			if (sd->info_birthday) {
+				if (strlen(sd->info_birthday) &&
+						strcmp(sd->info_birthday, "0")) {
+					char ib[256];
+					struct tm tm;
+					strptime(sd->info_birthday, "%Y%m%d", &tm);
+					strftime(ib, 256, "%B %d, %Y", &tm);
+					g_string_append_printf(st,
+							"Birthday: %s\n", ib);
+
+					strftime(ib, 256, "%Y", &tm);
+					int year = atoi(ib);
+					time_t t = time(NULL);
+					struct tm *lt = localtime(&t);
+					g_string_append_printf(st,
+							"Age: %d\n", lt->tm_year+1900-year);
+				}
+				g_free(sd->info_birthday);
+				sd->info_birthday = NULL;
+			}
+			if (sd->info_sex) {
+				if (strlen(sd->info_sex)) {
+					char *iptr = sd->info_sex;
+					while (*iptr++)
+						*iptr = tolower(*iptr);
+					g_string_append_printf(st,
+							"Gender: %s\n", sd->info_sex);
+				}
+				g_free(sd->info_sex);
+				sd->info_sex = NULL;
+			}
+			if (sd->info_language) {
+				if (strlen(sd->info_language)) {
+					char *iptr = strchr(sd->info_language, ' ');
+					if (iptr)
+						iptr++;
+					else
+						iptr = sd->info_language;
+					g_string_append_printf(st,
+							"Language: %s\n", iptr);
+				}
+				g_free(sd->info_language);
+				sd->info_language = NULL;
+			}
+			if (sd->info_country) {
+				if (strlen(sd->info_country)) {
+					char *iptr = strchr(sd->info_country, ' ');
+					if (iptr)
+						iptr++;
+					else
+						iptr = sd->info_country;
+					g_string_append_printf(st,
+							"Country: %s\n", iptr);
+				}
+				g_free(sd->info_country);
+				sd->info_country = NULL;
+			}
+			if (sd->info_province) {
+				if (strlen(sd->info_province))
+					g_string_append_printf(st,
+							"Region: %s\n", sd->info_province);
+				g_free(sd->info_province);
+				sd->info_province = NULL;
+			}
+			if (sd->info_city) {
+				if (strlen(sd->info_city))
+					g_string_append_printf(st,
+							"City: %s\n", sd->info_city);
+				g_free(sd->info_city);
+				sd->info_city = NULL;
+			}
+			if (sd->info_homepage) {
+				if (strlen(sd->info_homepage))
+					g_string_append_printf(st,
+							"Homepage: %s\n", sd->info_homepage);
+				g_free(sd->info_homepage);
+				sd->info_homepage = NULL;
+			}
+			if (sd->info_about) {
+				if (strlen(sd->info_about))
+					g_string_append_printf(st, "%s\n",
+							sd->info_about);
+				g_free(sd->info_about);
+				sd->info_about = NULL;
+			}
+			imcb_log(ic, "%s", st->str);
 			g_string_free(st, TRUE);
 		}
-	} else if (!strncmp(ptr, "BIRTHDAY ", 9)) {
-		sd->info_birthday = g_strdup(ptr + 9);
-
-		GString *st = g_string_new("Contact Information\n");
-		g_string_append_printf(st, "Skype Name: %s\n", user);
-		if (sd->info_fullname) {
-			if (strlen(sd->info_fullname))
-				g_string_append_printf(st, "Full Name: %s\n",
-					sd->info_fullname);
-			g_free(sd->info_fullname);
-			sd->info_fullname = NULL;
-		}
-		if (sd->info_phonehome) {
-			if (strlen(sd->info_phonehome))
-				g_string_append_printf(st, "Home Phone: %s\n",
-					sd->info_phonehome);
-			g_free(sd->info_phonehome);
-			sd->info_phonehome = NULL;
-		}
-		if (sd->info_phoneoffice) {
-			if (strlen(sd->info_phoneoffice))
-				g_string_append_printf(st, "Office Phone: %s\n",
-					sd->info_phoneoffice);
-			g_free(sd->info_phoneoffice);
-			sd->info_phoneoffice = NULL;
-		}
-		if (sd->info_phonemobile) {
-			if (strlen(sd->info_phonemobile))
-				g_string_append_printf(st, "Mobile Phone: %s\n",
-					sd->info_phonemobile);
-			g_free(sd->info_phonemobile);
-			sd->info_phonemobile = NULL;
-		}
-		g_string_append_printf(st, "Personal Information\n");
-		if (sd->info_nrbuddies) {
-			if (strlen(sd->info_nrbuddies))
-				g_string_append_printf(st,
-					"Contacts: %s\n", sd->info_nrbuddies);
-			g_free(sd->info_nrbuddies);
-			sd->info_nrbuddies = NULL;
-		}
-		if (sd->info_tz) {
-			if (strlen(sd->info_tz)) {
-				char ib[256];
-				time_t t = time(NULL);
-				t += atoi(sd->info_tz)-(60*60*24);
-				struct tm *gt = gmtime(&t);
-				strftime(ib, 256, "%H:%M:%S", gt);
-				g_string_append_printf(st,
-					"Local Time: %s\n", ib);
-			}
-			g_free(sd->info_tz);
-			sd->info_tz = NULL;
-		}
-		if (sd->info_seen) {
-			if (strlen(sd->info_seen)) {
-				char ib[256];
-				time_t it = atoi(sd->info_seen);
-				struct tm *tm = localtime(&it);
-				strftime(ib, 256, ("%Y. %m. %d. %H:%M"), tm);
-				g_string_append_printf(st,
-					"Last Seen: %s\n", ib);
-			}
-			g_free(sd->info_seen);
-			sd->info_seen = NULL;
-		}
-		if (sd->info_birthday) {
-			if (strlen(sd->info_birthday) &&
-				strcmp(sd->info_birthday, "0")) {
-				char ib[256];
-				struct tm tm;
-				strptime(sd->info_birthday, "%Y%m%d", &tm);
-				strftime(ib, 256, "%B %d, %Y", &tm);
-				g_string_append_printf(st,
-					"Birthday: %s\n", ib);
-
-				strftime(ib, 256, "%Y", &tm);
-				int year = atoi(ib);
-				time_t t = time(NULL);
-				struct tm *lt = localtime(&t);
-				g_string_append_printf(st,
-					"Age: %d\n", lt->tm_year+1900-year);
-			}
-			g_free(sd->info_birthday);
-			sd->info_birthday = NULL;
-		}
-		if (sd->info_sex) {
-			if (strlen(sd->info_sex)) {
-				char *iptr = sd->info_sex;
-				while (*iptr++)
-					*iptr = tolower(*iptr);
-				g_string_append_printf(st,
-					"Gender: %s\n", sd->info_sex);
-			}
-			g_free(sd->info_sex);
-			sd->info_sex = NULL;
-		}
-		if (sd->info_language) {
-			if (strlen(sd->info_language)) {
-				char *iptr = strchr(sd->info_language, ' ');
-				if (iptr)
-					iptr++;
-				else
-					iptr = sd->info_language;
-				g_string_append_printf(st,
-					"Language: %s\n", iptr);
-			}
-			g_free(sd->info_language);
-			sd->info_language = NULL;
-		}
-		if (sd->info_country) {
-			if (strlen(sd->info_country)) {
-				char *iptr = strchr(sd->info_country, ' ');
-				if (iptr)
-					iptr++;
-				else
-					iptr = sd->info_country;
-				g_string_append_printf(st,
-					"Country: %s\n", iptr);
-			}
-			g_free(sd->info_country);
-			sd->info_country = NULL;
-		}
-		if (sd->info_province) {
-			if (strlen(sd->info_province))
-				g_string_append_printf(st,
-					"Region: %s\n", sd->info_province);
-			g_free(sd->info_province);
-			sd->info_province = NULL;
-		}
-		if (sd->info_city) {
-			if (strlen(sd->info_city))
-				g_string_append_printf(st,
-					"City: %s\n", sd->info_city);
-			g_free(sd->info_city);
-			sd->info_city = NULL;
-		}
-		if (sd->info_homepage) {
-			if (strlen(sd->info_homepage))
-				g_string_append_printf(st,
-					"Homepage: %s\n", sd->info_homepage);
-			g_free(sd->info_homepage);
-			sd->info_homepage = NULL;
-		}
-		if (sd->info_about) {
-			if (strlen(sd->info_about))
-				g_string_append_printf(st, "%s\n",
-					sd->info_about);
-			g_free(sd->info_about);
-			sd->info_about = NULL;
-		}
-		imcb_log(ic, "%s", st->str);
-		g_string_free(st, TRUE);
 	}
 }
 
