@@ -1005,11 +1005,11 @@ static void skype_parse_chat(struct im_connection *ic, char *line)
 		if (!gc) {
 			gc = imcb_chat_new(ic, id);
 			imcb_chat_name_hint(gc, skype_lookup_name(sd, id));
-		}
-		skype_printf(ic, "GET CHAT %s ADDER\n", id);
-		skype_printf(ic, "GET CHAT %s TOPIC\n", id);
-
-		skype_attempt_chatmessage(ic);
+			skype_printf(ic, "GET CHAT %s ACTIVEMEMBERS\n", id);
+			skype_printf(ic, "GET CHAT %s ADDER\n", id);
+			skype_printf(ic, "GET CHAT %s TOPIC\n", id);
+		} else
+			skype_attempt_chatmessage(ic);
 	} else if (!strcmp(info, "STATUS DIALOG")) {
 		if (sd->groupchat_with) {
 			gc = imcb_chat_new(ic, id);
@@ -1078,6 +1078,8 @@ static void skype_parse_chat(struct im_connection *ic, char *line)
 		}
 		imcb_chat_add_buddy(gc, sd->username);
 		g_strfreev(members);
+
+		skype_attempt_chatmessage(ic);
 	}
 }
 
@@ -1109,7 +1111,6 @@ static void skype_parse_chats(struct im_connection *ic, char *line)
 	i = chats;
 	while (*i) {
 		skype_printf(ic, "GET CHAT %s STATUS\n", *i);
-		skype_printf(ic, "GET CHAT %s ACTIVEMEMBERS\n", *i);
 		i++;
 	}
 	g_strfreev(chats);
