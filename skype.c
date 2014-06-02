@@ -605,6 +605,15 @@ static void skype_parse_chatmessage_said_emoted(struct im_connection *ic, struct
 		imcb_chat_msg(gc, sd->handle, buf, 0, 0);
 }
 
+static int skype_compare_topic(struct groupchat* gc, const char* topic)
+{
+	if (!gc || !gc->ui_data)
+		return -1;
+
+	irc_channel_t* ic = gc->ui_data;
+	return strcmp(topic, ic->topic);
+}
+
 static void skype_attempt_chatmessage(struct im_connection *ic)
 {
 	struct skype_data *sd = ic->proto_data;
@@ -616,7 +625,7 @@ static void skype_attempt_chatmessage(struct im_connection *ic)
 			if (!strcmp(sd->type, "SAID") ||
 					!strcmp(sd->type, "EMOTED")) {
 				skype_parse_chatmessage_said_emoted(ic, gc, body);
-			} else if (!strcmp(sd->type, "SETTOPIC") && gc && (!gc->topic || strcmp(gc->topic, body)))
+			} else if (!strcmp(sd->type, "SETTOPIC") && skype_compare_topic(gc, body))
 				imcb_chat_topic(gc,
 						sd->handle, body, 0);
 			else if (!strcmp(sd->type, "LEFT") && gc)
@@ -1029,7 +1038,7 @@ static void skype_parse_chat(struct im_connection *ic, char *line)
 				sd->adder = g_strdup(sd->username);
 				sd->topic_wait = 0;
 			}
-			if ((!gc->topic || strcmp(gc->topic, info)))
+			if (skype_compare_topic(gc, info))
 				imcb_chat_topic(gc, sd->adder, info, 0);
 			g_free(sd->adder);
 			sd->adder = NULL;
