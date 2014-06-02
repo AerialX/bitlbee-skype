@@ -1310,6 +1310,8 @@ static void skype_logout(struct im_connection *ic)
 	struct skype_data *sd = ic->proto_data;
 	int i;
 
+	b_event_remove(sd->bfd);
+
 	skype_printf(ic, "SET USERSTATUS OFFLINE\n");
 
 	while (ic->groupchats)
