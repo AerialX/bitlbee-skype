@@ -1030,7 +1030,8 @@ static void skype_parse_chat(struct im_connection *ic, char *line)
 				sd->adder = g_strdup(sd->username);
 				sd->topic_wait = 0;
 			}
-			imcb_chat_topic(gc, sd->adder, info, 0);
+			if ((!gc->topic || strcmp(gc->topic, info)))
+				imcb_chat_topic(gc, sd->adder, info, 0);
 			g_free(sd->adder);
 			sd->adder = NULL;
 		}
