@@ -986,7 +986,6 @@ static void skype_parse_chat(struct im_connection *ic, char *line)
 		if (!gc) {
 			gc = imcb_chat_new(ic, id);
 			imcb_chat_name_hint(gc, g_hash_table_lookup(sd->channelNames, id) ?: id);
-			imcb_chat_name_hint(gc, attemptedName);
 			irc_channel_t* chan = gc->ui_data;
 		}
 		skype_printf(ic, "GET CHAT %s ADDER\n", id);
