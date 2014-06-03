@@ -1789,6 +1789,105 @@ static void skype_cmd_close(irc_t* irc, char** cmd)
 	}
 }
 
+static void skype_cmd_join(irc_t* irc, char** cmd)
+{
+	// Accepted forms:
+	// skype join
+	// skype join tag
+	// skype join #chat
+	// skype join tag #chat
+
+	const char* channel = NULL;
+	const char* tag = NULL;
+	int tagIndex = -1;
+
+	if (cmd[1]) {
+		if (cmd[1][0] == '#')
+			channel = cmd[1];
+		else
+			tag = cmd[1];
+
+		if (!channel && cmd[2])
+			channel = cmd[2];
+	}
+
+	struct account* acc = NULL;
+
+	if (tag)
+		acc = account_by_tag(irc->b, tag);
+
+	if (!acc && tag && sscanf(tag, "%d", &tagIndex) == 1 && tagIndex < 1000 && tagIndex >= 0) {
+		for (acc = irc->b->accounts; acc; acc = acc->next)
+			if (!(tagIndex--))
+				break;
+	}
+
+	if (!acc) {
+		for (acc = irc->b->accounts; acc; acc = acc->next) {
+			if (!strcmp(acc->prpl->name, "skype"))
+				break;
+		}
+	}
+
+	if (!acc)
+		irc_rootmsg(irc, "Unable to find skype account with tag %s", tag ?: "[none]");
+	else {
+		struct im_connection* ic = acc->ic;
+		struct skype_data* sd = ic->proto_data;
+
+		if (channel) {
+			GHashTableIter iter;
+			gpointer key, value;
+			g_hash_table_iter_init(&iter, sd->channelNames);
+			while (g_hash_table_iter_next(&iter, &key, &value)) {
+				if (!strcmp(value, channel)) {
+					channel = key;
+					break;
+				}
+			}
+
+			irc_rootmsg(irc, "Joining skype chat %s...", channel);
+			skype_printf(ic, "GET CHAT %s STATUS\n", channel);
+		} else {
+			irc_rootmsg(irc, "Joining all skype chats...");
+
+			skype_printf(ic, "SEARCH BOOKMARKEDCHATS\n");
+			skype_printf(ic, "SEARCH ACTIVECHATS\n");
+			skype_printf(ic, "SEARCH MISSEDCHATS\n");
+			skype_printf(ic, "SEARCH RECENTCHATS\n");
+		}
+	}
+}
+
+static void skype_cmd(irc_t* irc, char** cmd)
+{
+	const char* command = cmd[1];
+	int argCount = 0;
+
+	cmd++;
+
+	for (char** _cmd = cmd + 1; *_cmd; _cmd++)
+		argCount++;
+
+	if (!strcmp(command, "rename")) {
+		if (argCount != 2)
+			irc_rootmsg(irc, "Expected 2 arguments");
+		else
+			skype_cmd_renchan(irc, cmd);
+	} else if (!strcmp(command, "close")) {
+		if (argCount != 1)
+			irc_rootmsg(irc, "Expected 1 argument");
+		else
+			skype_cmd_close(irc, cmd);
+	} else if (!strcmp(command, "join")) {
+		if (argCount > 2)
+			irc_rootmsg(irc, "Expected <= 2 arguments");
+		else
+			skype_cmd_join(irc, cmd);
+	} else
+		irc_rootmsg(irc, "Unknown skype command. Expected one of: rename, close, join");
+}
+
 void init_plugin(void)
 {
 	struct prpl *ret = g_new0(struct prpl, 1);
@@ -1815,6 +1914,5 @@ void init_plugin(void)
 #endif
 	register_protocol(ret);
 
-	root_command_add("renchan", 2, skype_cmd_renchan, 0);
-	root_command_add("skypeclose", 1, skype_cmd_close, 0);
+	root_command_add("skype", 1, skype_cmd, 0);
 }
