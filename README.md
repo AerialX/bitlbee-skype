@@ -33,6 +33,8 @@ Minor fix applied to prevent it from spinning indefinitely upon disconnection.
 ### TODO, Suggestions, etc.
 
 - Allow editing of last message with EDIT: syntax.
+- Split up long lines of chat. Multiline messages are handled fine, but long
+  single-line messages get cut off.
 
 ## Commands
 
