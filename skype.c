@@ -346,49 +346,16 @@ static void skype_parse_user(struct im_connection *ic, char *line)
 	*ptr = '\0';
 	ptr++;
 	if (!strncmp(ptr, "ONLINESTATUS ", 13)) {
-		if (!strlen(user) || !strcmp(user, sd->username))
-			return;
-		if (!set_getbool(&ic->acc->set, "test_join")
-				&& !strcmp(user, "echo123"))
-			return;
-		ptr = g_strdup_printf("%s@skype.com", user);
-		imcb_add_buddy(ic, ptr, skype_group_by_username(ic, user));
-		if (strcmp(status, "OFFLINE") && (strcmp(status, "SKYPEOUT") ||
-			!set_getbool(&ic->acc->set, "skypeout_offline")))
-			flags |= OPT_LOGGED_IN;
-		if (strcmp(status, "ONLINE") && strcmp(status, "SKYPEME"))
-			flags |= OPT_AWAY;
-		imcb_buddy_status(ic, ptr, flags, NULL, NULL);
-		g_free(ptr);
 	} else if (!strncmp(ptr, "RECEIVEDAUTHREQUEST ", 20)) {
 		char *message = ptr + 20;
 		if (strlen(message))
 			skype_buddy_ask(ic, user, message);
 	} else if (!strncmp(ptr, "BUDDYSTATUS ", 12)) {
-		char *st = ptr + 12;
-		if (!strcmp(st, "3")) {
-			char *buf = g_strdup_printf("%s@skype.com", user);
-			imcb_add_buddy(ic, buf, skype_group_by_username(ic, user));
-			g_free(buf);
-		}
 	} else if (!strncmp(ptr, "MOOD_TEXT ", 10)) {
-		char *buf = g_strdup_printf("%s@skype.com", user);
-		bee_user_t *bu = bee_user_by_handle(ic->bee, ic, buf);
-		g_free(buf);
-		buf = ptr + 10;
-		if (bu)
-			imcb_buddy_status(ic, bu->handle, bu->flags, NULL,
-					*buf ? buf : NULL);
-		if (set_getbool(&ic->acc->set, "show_moods"))
-			imcb_log(ic, "User `%s' changed mood text to `%s'", user, buf);
 	} else if (!strncmp(ptr, "FULLNAME ", 9)) {
 		char *name = ptr + 9;
 		if (sd->is_info) {
 			sd->info_fullname = g_strdup(name);
-		} else {
-			char *buf = g_strdup_printf("%s@skype.com", user);
-			imcb_rename_buddy(ic, buf, name);
-			g_free(buf);
 		}
 	} else if (sd->is_info) {
 		if (!strncmp(ptr, "PHONE_HOME ", 11))
@@ -889,14 +856,6 @@ static void skype_group_free(struct skype_group *sg, gboolean usersonly)
 /* Update the group of each user in this group */
 static void skype_group_users(struct im_connection *ic, struct skype_group *sg)
 {
-	int i;
-
-	for (i = 0; i < g_list_length(sg->users); i++) {
-		char *user = g_list_nth_data(sg->users, i);
-		char *buf = g_strdup_printf("%s@skype.com", user);
-		imcb_add_buddy(ic, buf, sg->name);
-		g_free(buf);
-	}
 }
 
 static void skype_parse_group(struct im_connection *ic, char *line)
@@ -1161,10 +1120,7 @@ static void skype_parse_alter_group(struct im_connection *ic, char *line)
 
 		info += 8;
 		if (sg) {
-			char *buf = g_strdup_printf("%s@skype.com", info);
 			sg->users = g_list_append(sg->users, g_strdup(info));
-			imcb_add_buddy(ic, buf, sg->name);
-			g_free(buf);
 		} else
 			log_message(LOGLVL_ERROR,
 				"No skype group with id %s. That's probably a bug.", id);
@@ -1510,7 +1466,6 @@ void skype_chat_msg(struct groupchat *gc, char *message, int flags)
 void skype_chat_leave(struct groupchat *gc)
 {
 	struct im_connection *ic = gc->ic;
-	skype_printf(ic, "ALTER CHAT %s LEAVE\n", gc->title);
 	gc->data = (void *)TRUE;
 }
 
@@ -1676,7 +1631,8 @@ static void skype_channel_names(GHashTable* table, const char* channelNames)
 
 	char** names = g_strsplit(channelNames, " ", 0x100);
 
-	for (char** name = names; *name; name++) {
+	char** name;
+	for (name = names; *name; name++) {
 		char** entry = g_strsplit(*name, ":", 2);
 		if (entry[0] && entry[1])
 			g_hash_table_insert(table, g_strdup(entry[1]), g_strdup(entry[0]));
@@ -1866,7 +1822,8 @@ static void skype_cmd(irc_t* irc, char** cmd)
 
 	cmd++;
 
-	for (char** _cmd = cmd + 1; *_cmd; _cmd++)
+	char** _cmd;
+	for (_cmd = cmd + 1; *_cmd; _cmd++)
 		argCount++;
 
 	if (!strcmp(command, "rename")) {
