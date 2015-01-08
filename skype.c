@@ -564,10 +564,7 @@ static void skype_parse_chatmessage_said_emoted(struct im_connection *ic, struct
 		}
 	} else
 		g_snprintf(buf, IRC_LINE_SIZE, "/me %s", body);
-	if (!gc)
-		/* Private message */
-		imcb_buddy_msg(ic, sd->handle, buf, 0, 0);
-	else
+	if (gc)
 		/* Groupchat message */
 		imcb_chat_msg(gc, sd->handle, buf, 0, 0);
 }
