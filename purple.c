@@ -1041,7 +1041,16 @@ void prplcb_conv_chat_msg( PurpleConversation *conv, const char *who, const char
 	buddy = purple_find_buddy( conv->account, who );
 	if( buddy != NULL )
 		who = purple_buddy_get_name( buddy );
-	
+
+	// Add user to chat if they don't exist
+	bool hasBuddy = false;
+	GList* ir;
+	for (ir = gc->in_room; ir && !hasBuddy; ir = ir->next)
+		if (!g_strcmp0(who, ir->data))
+			hasBuddy = true;
+	if (!hasBuddy)
+		imcb_chat_add_buddy(gc, who);
+
 	imcb_chat_msg( gc, who, (char*) message, 0, mtime );
 }
 
