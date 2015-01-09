@@ -41,7 +41,6 @@ build() {
   cd "${_pkgname}-$pkgver"
 	cp -a ../skype.c protocols/skype/
 	cp -a ../purple.c protocols/purple/
-	cp -a ../root_commands.c ./
 
   ./configure \
     --prefix=/usr \
